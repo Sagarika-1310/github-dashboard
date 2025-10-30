@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GitHub Dashboard API</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 50px auto; padding: 20px; }
+        h1 { color: #333; }
+        .endpoint { background: #f4f4f4; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .method { color: #28a745; font-weight: bold; }
+        code { background: #e9ecef; padding: 2px 6px; border-radius: 3px; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<h1>GitHub Repository Dashboard API</h1>
+<p>Welcome to the API-based Automation Dashboard! This API fetches and stores popular Python GitHub repositories.</p>
+
+<h2>Available Endpoints:</h2>
+
+<div class="endpoint">
+    <span class="method">GET</span> <code>/api/repos</code><br>
+    Get all repositories | <a href="/api/repos">Try it</a>
+</div>
+
+<div class="endpoint">
+    <span class="method">GET</span> <code>/api/repos?language=Python&limit=10</code><br>
+    Filter by language and limit results | <a href="/api/repos?language=Python&limit=10">Try it</a>
+</div>
+
+<div class="endpoint">
+    <span class="method">GET</span> <code>/api/repos/top?limit=5</code><br>
+    Get top repositories by stars | <a href="/api/repos/top?limit=5">Try it</a>
+</div>
+
+<div class="endpoint">
+    <span class="method">GET</span> <code>/api/stats</code><br>
+    Get database statistics | <a href="/api/stats">Try it</a>
+</div>
+
+<div class="endpoint">
+    <span class="method">POST</span> <code>/api/fetch</code><br>
+    Manually trigger data fetch
+</div>
+
+<h2>Query Parameters:</h2>
+<ul>
+    <li><code>language</code> - Filter by programming language</li>
+    <li><code>limit</code> - Limit number of results (default: all)</li>
+    <li><code>min_stars</code> - Minimum star count</li>
+</ul>
+</body>
+</html>
