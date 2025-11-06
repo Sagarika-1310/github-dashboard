@@ -25,5 +25,6 @@ def setup_logger(app):
     app.logger.addHandler(file_handler)
     app.logger.addHandler(stream_handler)
     app.logger.setLevel(logging.INFO)
+    app.logger.setLevel(logging.ERROR)
 
     app.logger.info("Logger initialized successfully.")

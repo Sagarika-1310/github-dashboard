@@ -19,11 +19,6 @@
 <h2>Available Endpoints:</h2>
 
 <div class="endpoint">
-    <span class="method">GET</span> <code>/api/repos</code><br>
-    Get all repositories | <a href="/api/repos">Try it</a>
-</div>
-
-<div class="endpoint">
     <span class="method">GET</span> <code>/api/repos?language=Python&limit=10</code><br>
     Filter by language and limit results | <a href="/api/repos?language=Python&limit=10">Try it</a>
 </div>
@@ -34,20 +29,83 @@
 </div>
 
 <div class="endpoint">
-    <span class="method">GET</span> <code>/api/stats</code><br>
-    Get database statistics | <a href="/api/stats">Try it</a>
+    <span class="method">GET</span> <code>/repo/stats</code><br>
+    Get database statistics | <a href="/repo/stats">Try it</a>
 </div>
 
 <div class="endpoint">
-    <span class="method">POST</span> <code>/api/fetch</code><br>
-    Manually trigger data fetch
+    <span class="method">POST</span> <code>/repo/fetch_repos</code><br>
+        Fetch repositories | <a href="/repo/stats">Try it</a>
 </div>
 
-<h2>Query Parameters:</h2>
-<ul>
-    <li><code>language</code> - Filter by programming language</li>
-    <li><code>limit</code> - Limit number of results (default: all)</li>
-    <li><code>min_stars</code> - Minimum star count</li>
-</ul>
+<!--<h2>Query Parameters:</h2>-->
+<!--<ul>-->
+<!--    <li><code>language</code> - Filter by programming language</li>-->
+<!--    <li><code>limit</code> - Limit number of results (default: all)</li>-->
+<!--    <li><code>min_stars</code> - Minimum star count</li>-->
+<!--</ul>-->
+
+<div class="endpoint">
+  <span class="method">GET</span>
+  <code>/repo/get_repos</code><br>
+  Get all repositories |
+  <a href="#" id="tryItLink">Try it</a>
+</div>
+
+<!-- Hidden Try-It section -->
+<div id="tryItSection" style="display: none; margin-top: 10px;">
+  <form id="tryItForm">
+    <label for="queryParams">Enter query parameters (key=value, comma separated):</label><br>
+    <input type="text" id="queryParams" placeholder="e.g. user_id=123, language=python" style="width: 100%; margin: 5px 0;"><br>
+    <button type="submit">Send Request</button>
+  </form>
+
+  <div id="resultBox" style="
+      display: none;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background: #f8f8f8;
+      font-family: monospace;
+      white-space: pre-wrap;
+      border-radius: 5px;
+  "></div>
+</div>
+
+<script>
+  const tryItLink = document.getElementById("tryItLink");
+  const tryItSection = document.getElementById("tryItSection");
+  const tryItForm = document.getElementById("tryItForm");
+  const resultBox = document.getElementById("resultBox");
+
+  // Toggle the input box when "Try it" is clicked
+  tryItLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    tryItSection.style.display = tryItSection.style.display === "none" ? "block" : "none";
+    resultBox.style.display = "none";
+  });
+
+  // Handle the form submission
+  tryItForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    let queryString = "";
+    const rawParams = document.getElementById("queryParams").value.trim();
+
+    if (rawParams) {
+      const params = rawParams.split(",").map(p => p.trim().replace("=", "=")).join("&");
+      queryString = "?" + params;
+    }
+
+    try {
+      const response = await fetch(`/repo/get_repos${queryString}`);
+      const data = await response.json();
+      resultBox.textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+      resultBox.textContent = "Error: " + err.message;
+    }
+    resultBox.style.display = "block";
+  });
+</script>
+
 </body>
 </html>
