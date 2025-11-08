@@ -1,19 +1,15 @@
 """Initialize flask app"""
 
 from flask import Flask
-import os
+
 from app.logger import setup_logger
+from app.config import Config
 
 def create_app():
     app = Flask(__name__)
 
-    app.config['SECRET_KEY'] = 'dev_secret_key_change_me'
-
-    # Ensure instance folder exists
-    try:
-        os.makedirs(app.instance_path, exist_ok=True)
-    except OSError:
-        pass
+    # Load config
+    app.config.from_object(Config)
 
     # Setup logging
     setup_logger(app)
@@ -23,6 +19,8 @@ def create_app():
     from app.routes.auth_routes import bp as auth_bp
 
     app.register_blueprint(repo_bp, url_prefix='/repo')
-    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(auth_bp, url_prefix='/repo')
+
+    app.logger.info("Application started successfully!")
 
     return app

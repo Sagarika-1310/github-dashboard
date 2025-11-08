@@ -8,7 +8,7 @@ from app.repositories.github_repo import store_data
 
 
 # Fetch data from GitHub API
-def fetch_github_data(topic='python', per_page=30):
+def fetch_github_data(topic, per_page=30):
     url = f'https://api.github.com/search/repositories?q=topic:{topic}&sort=stars&order=desc&per_page={per_page}'
     try:
         response = requests.get(url)
