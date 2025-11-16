@@ -1,4 +1,11 @@
-"""Repositories table queries for application"""
+"""
+Repository layer for storing and retrieving GitHub repository metadata.
+
+This module centralizes all data access logic for the `repositories` table,
+including table creation, record insertion, filtering, statistics, and
+top-repository queries. All DB operations are wrapped using the db_connect
+decorator to ensure consistent connection handling.
+"""
 
 from flask import current_app as app
 from datetime import datetime
@@ -6,119 +13,230 @@ from datetime import datetime
 from app.utils.db_utils import db_connect
 
 
-@db_connect
+@db_connect()
 def init_repo_table(cursor):
-    """Method to create table if it does not exist"""
+    """
+    Create the 'repositories' table if it does not exist.
+
+    Args:
+        cursor (sqlite3.Cursor): Provided by db_connect decorator.
+
+    Raises:
+        Exception: If table creation fails.
+    """
     try:
-        app.logger.info("Creating table repositories if not exists")
-        cursor.execute('''CREATE TABLE IF NOT EXISTS repositories
-                     (id INTEGER AUTOINCREMENT,
-                      repo_name TEXT,
-                      full_repo_name TEXT PRIMARY KEY,
-                      repo_url TEXT,
-                      description TEXT,
-                      stars INTEGER,
-                      forks INTEGER,
-                      language TEXT,
-                      created_at TEXT,
-                      updated_at TEXT,
-                      fetched_at TEXT)''')
-        app.logger.info("Created table repositories successfully")
+        app.logger.info("Ensuring 'repositories' table exists...")
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS repositories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo_name TEXT NOT NULL,
+                full_repo_name TEXT UNIQUE NOT NULL,
+                repo_url TEXT NOT NULL,
+                description TEXT,
+                stars INTEGER DEFAULT 0,
+                forks INTEGER DEFAULT 0,
+                language TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                fetched_at TEXT
+            );
+            """
+        )
+
+        app.logger.info("'repositories' table is ready.")
+
     except Exception as e:
-        app.logger.error(f"Error creating repositories table. ERROR: {str(e)}")
+        app.logger.error(f"Failed to create 'repositories' table: {str(e)}")
         raise
 
 
-@db_connect
+@db_connect()
 def store_data(cursor, repos):
-    """Method to store repo data in DB"""
-    # Check and create table
-    init_repo_table()
-    fetched_time = datetime.now().isoformat()
+    """
+    Insert or update GitHub repository metadata into the database.
 
-    app.logger.info("Storing repo data in DB")
-    for repo in repos:
-        try:
-            app.logger.info(f"Executing insert query for repo {repo.get('name')}")
-            cursor.execute('''INSERT OR REPLACE INTO repositories 
-                        (name, full_name, repo_url, description, stars, forks, language, created_at, updated_at, fetched_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                           (repo['name'], repo['full_name'], repo['html_url'], repo['description'],
-                            repo['stargazers_count'], repo['forks_count'], repo['language'],
-                            repo['created_at'], repo['updated_at'], fetched_time))
-        except Exception as e:
-            app.logger.error(f"Error storing repo {repo.get('name')} data in DB. ERROR: {str(e)}")
-            raise
-    app.logger.info("Stored repo data in DB successfully")
+    Args:
+        cursor (sqlite3.Cursor): Provided by db_connect decorator.
+        repos (list): List of GitHub repository JSON objects.
 
-
-@db_connect
-def get_all_repos(cursor, language=None, limit=None, min_stars=None):
-    """Method to fetch all repositories from DB for the defined language, limit and min stars"""
+    Raises:
+        ValueError: If repos is not a list.
+        KeyError: If a repository object is missing required fields.
+        Exception: For any SQL execution failure.
+    """
     try:
-        app.logger.info(f"Fetching all repo for language: {language.upper()}, limit: {limit}, min stars {min_stars}")
-        query = 'SELECT * FROM repositories WHERE 1=1'
+        if not isinstance(repos, list):
+            raise ValueError("Expected 'repos' to be a list of GitHub repositories.")
+
+        count = len(repos)
+        fetched_time = datetime.utcnow().isoformat()
+        app.logger.info(f"Storing {count} repositories into the database...")
+
+        for repo in repos:
+            required_keys = ["name", "full_name", "html_url", "stargazers_count", "forks_count"]
+            missing = [key for key in required_keys if key not in repo]
+
+            if missing:
+                raise KeyError(f"Missing required fields in repo object: {missing}")
+
+            repo_name = repo["name"]
+            app.logger.debug(f"Processing repo: '{repo_name}'")
+
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO repositories
+                (repo_name, full_repo_name, repo_url, description, stars, forks, language,
+                    created_at, updated_at, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    repo["name"],
+                    repo["full_name"],
+                    repo["html_url"],
+                    repo.get("description"),
+                    repo.get("stargazers_count", 0),
+                    repo.get("forks_count", 0),
+                    (repo.get("language") or "").lower(),
+                    repo.get("created_at"),
+                    repo.get("updated_at"),
+                    fetched_time
+                )
+            )
+
+        app.logger.info("All repository records stored successfully.")
+
+    except Exception as e:
+        app.logger.error(f"Error storing repository data: {str(e)}")
+        raise
+
+
+@db_connect()
+def get_all_repos(cursor, language=None, limit=None, min_stars=None):
+    """
+    Retrieve repositories with optional filters.
+
+    Args:
+        cursor (sqlite3.Cursor): Provided by db_connect decorator.
+        language (str, optional): Filter by programming language.
+        limit (int, optional): Limit the number of rows returned.
+        min_stars (int, optional): Minimum number of stars required.
+
+    Returns:
+        list[dict]: List of repository rows as dictionaries.
+
+    Raises:
+        Exception: SQL execution error.
+    """
+    try:
+        app.logger.info(
+            "Fetching repositories with filters: "
+            f"language={language}, min_stars={min_stars}, limit={limit}"
+        )
+
+        query = "SELECT * FROM repositories WHERE 1=1"
         params = []
 
         if language:
-            query += ' AND LOWER(language) = ?'
+            query += " AND LOWER(language) = ?"
             params.append(language.lower())
 
-        if min_stars:
-            query += ' AND stars >= ?'
+        if min_stars is not None:
+            query += " AND stars >= ?"
             params.append(min_stars)
 
-        query += ' ORDER BY stars DESC'
+        query += " ORDER BY stars DESC"
 
         if limit:
-            query += ' LIMIT ?'
+            query += " LIMIT ?"
             params.append(limit)
 
-        app.logger.info("Executing query to fetch all repo")
         cursor.execute(query, params)
         repos = [dict(row) for row in cursor.fetchall()]
 
-        app.logger.info("Fetched all repo successfully")
-
+        app.logger.info(f"Successfully fetched {len(repos)} repositories.")
         return repos
+
     except Exception as e:
-        app.logger.error(f"Error fetching repos. ERROR: {str(e)}")
+        app.logger.error(f"Error fetching repositories: {str(e)}")
         raise
 
 
-@db_connect
+@db_connect()
 def get_all_top_repos(cursor, limit):
-    """Method to get all the top repos with the defined limit"""
-    try:
-        app.logger.info(f"Executing query to fetch top {limit} repo")
-        cursor.execute('SELECT * FROM repositories ORDER BY stars DESC LIMIT ?', (limit,))
-        repos = [dict(row) for row in cursor.fetchall()]
-        app.logger.info(f"Fetched all top {limit} repo successfully")
+    """
+    Retrieve the top N repositories sorted by star count.
 
+    Args:
+        cursor (sqlite3.Cursor): Provided by db_connect decorator.
+        limit (int): Number of top repositories to return.
+
+    Returns:
+        list[dict]: List of top repository rows.
+
+    Raises:
+        Exception: SQL execution error.
+    """
+    try:
+        app.logger.info(f"Fetching top {limit} repositories by stars...")
+
+        cursor.execute(
+            "SELECT * FROM repositories ORDER BY stars DESC LIMIT ?",
+            (limit,)
+        )
+
+        repos = [dict(row) for row in cursor.fetchall()]
+
+        app.logger.info(f"Fetched {len(repos)} top repositories.")
         return repos
+
     except Exception as e:
-        app.logger.error(f"Error fetching top repos. ERROR: {str(e)}")
+        app.logger.error(f"Error fetching top repositories: {str(e)}")
         raise
 
 
-@db_connect
+@db_connect()
 def get_all_stats(cursor):
-    """Method to get repo statistics"""
+    """
+    Compute repository statistics including total count, total stars,
+    average stars, and language distribution.
+
+    Args:
+        cursor (sqlite3.Cursor): Provided by db_connect decorator.
+
+    Returns:
+        tuple:
+            int: total number of repositories
+            int: total stars
+            float: average stars (rounded to 2 decimals)
+            list[dict]: language distribution entries
+
+    Raises:
+        Exception: SQL execution failure.
+    """
     try:
-        app.logger.info("Calculating repo statistics")
-        cursor.execute('SELECT COUNT(*) FROM repositories')
+        app.logger.info("Computing repository statistics...")
+
+        cursor.execute("SELECT COUNT(*) FROM repositories")
         total = cursor.fetchone()[0]
 
-        cursor.execute('SELECT language, COUNT(*) as count FROM repositories GROUP BY language ORDER BY count DESC')
-        languages = [{'language': row[0], 'count': row[1]} for row in cursor.fetchall()]
-
-        cursor.execute('SELECT SUM(stars) FROM repositories')
+        cursor.execute("SELECT SUM(stars) FROM repositories")
         total_stars = cursor.fetchone()[0] or 0
 
-        cursor.execute('SELECT AVG(stars) FROM repositories')
-        avg_stars = round(cursor.fetchone()[0] or 0, 2)
-        app.logger.info("Calculated repo statistics successfully")
+        cursor.execute("SELECT AVG(stars) FROM repositories")
+        avg_stars = round(cursor.fetchone()[0] or 0.0, 2)
 
+        cursor.execute(
+            "SELECT language, COUNT(*) AS count FROM repositories "
+            "GROUP BY language ORDER BY count DESC"
+        )
+
+        languages = [{"language": row[0], "count": row[1]} for row in cursor.fetchall()]
+
+        app.logger.info("Repository statistics computed successfully.")
         return total, total_stars, avg_stars, languages
+
     except Exception as e:
-        app.logger.error(f"Error calculating repo statistics. ERROR: {str(e)}")
+        app.logger.error(f"Error computing repository statistics: {str(e)}")
+        raise

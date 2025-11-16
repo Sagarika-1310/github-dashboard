@@ -1,12 +1,35 @@
+"""Utility module for handling database-related operations using SQLite.
+
+This module provides a `db_connect` decorator that manages database connections,
+cursor creation, commits, rollbacks, logging, and cleanup. It centralizes DB
+access logic to ensure consistency and prevent resource leaks across the
+application.
+"""
+
+import os
 import sqlite3
 from functools import wraps
 from flask import current_app as app
 
 
-def db_connect(db_path=None):
+def db_connect(path: str = None):
     """
-    Decorator for functions that need a SQLite connection.
-    Automatically handles connection, cursor, commit, rollback, and close.
+    Decorator that provides a managed SQLite database connection to the wrapped function.
+
+    The wrapped function will receive a `cursor` object as its first argument.
+    All connection handling—including opening, committing, rolling back, and closing—
+    is automatically managed.
+
+    Args:
+        path (str, optional): Custom database file path. Falls back to
+                              app.config["DB_PATH"] when not provided.
+
+    Returns:
+        function: Wrapped function with database context injected.
+
+    Raises:
+        sqlite3.Error: Database-related errors.
+        Exception: Any unexpected errors during DB operations.
     """
 
     def decorator(func):
@@ -16,42 +39,57 @@ def db_connect(db_path=None):
             cursor = None
 
             try:
-                # Check for new DB path
-                path = app.config["DB_PATH"]
-                if db_path:
-                    path = db_path
+                # Determine correct database path
+                try:
+                    db_path = path or app.config["DB_PATH"]
+                except KeyError:
+                    raise KeyError(
+                        "DB_PATH not found in app.config. Please configure it before using db_connect."
+                    )
 
-                # Connect to database
-                conn = sqlite3.connect(path)
+                # Ensure directory exists (unless DB is in current directory)
+                db_dir = os.path.dirname(db_path)
+                if db_dir:
+                    os.makedirs(db_dir, exist_ok=True)
+                    app.logger.debug(f"Ensured DB directory exists: {db_dir}")
+
+                # Create SQLite connection
+                conn = sqlite3.connect(db_path)
+                conn.row_factory = sqlite3.Row  # Return dict-like rows
                 cursor = conn.cursor()
-                app.logger.info(f"Opened SQLite connection to {path}")
 
-                # Call wrapped function
+                app.logger.info(f"Opened SQLite connection at: {db_path}")
+
+                # Execute wrapped function
                 result = func(cursor, *args, **kwargs)
 
-                # Commit if successful
+                # Commit changes
                 conn.commit()
-                app.logger.info("Transaction committed successfully")
+                app.logger.debug("Transaction committed successfully.")
                 return result
 
-            except sqlite3.Error as e:
-                if conn: conn.rollback()
-                app.logger.error(f"DB error. ERROR : {str(e)}")
+            except sqlite3.Error as sql_err:
+                if conn:
+                    conn.rollback()
+                    app.logger.warning("Transaction rolled back due to SQLite error.")
+                app.logger.error(f"SQLite error: {str(sql_err)}")
                 raise
 
-            except Exception as e:
-                if conn: conn.rollback()
-                app.logger.error(f"Unexpected error in DB. ERROR: {str(e)}")
+            except Exception as exc:
+                if conn:
+                    conn.rollback()
+                    app.logger.warning("Transaction rolled back due to unexpected error.")
+                app.logger.error(f"Unexpected database error: {str(exc)}")
                 raise
 
             finally:
-                # Cleanup
+                # Close DB resources
                 if cursor:
                     cursor.close()
-                    app.logger.info("Cursor closed")
+                    app.logger.debug("Cursor closed.")
                 if conn:
                     conn.close()
-                    app.logger.info("SQLite connection closed")
+                    app.logger.info("SQLite connection closed.")
 
         return wrapper
 

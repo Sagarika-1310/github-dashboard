@@ -193,10 +193,10 @@
 <div class="container">
     <div class="header">
         <h1>GitHub Repository Dashboard API</h1>
-        <a href="/repo/logout" class="logout-btn">Logout</a>
+        <a href="/auth/logout" class="logout-btn">Logout</a>
     </div>
 
-    <p>Welcome to the API-based Automation Dashboard! This API fetches and stores popular Python GitHub
+    <p>Welcome to the API-based Automation Dashboard! This API fetches and stores popular GitHub
         repositories.</p>
 
     <h2>Available Endpoints</h2>
@@ -237,7 +237,14 @@
         <span class="method">GET</span>
         <code>/repo/stats</code><br>
         Get database statistics |
-        <a href="/repo/stats">Try it</a>
+        <a href="#" id="tryStatsRepos">Try it</a>
+
+        <div id="statsReposSection" class="tryItSection">
+            <form id="statsReposForm" class="tryItForm">
+                <button type="submit">Send Request</button>
+            </form>
+            <div id="resultBoxStats" class="resultBox"></div>
+        </div>
     </div>
 
     <div class="endpoint">
@@ -258,86 +265,104 @@
 </div>
 
 <script>
-    // Helper for GET
+    document.querySelectorAll(".tryItSection").forEach(sec => {
+        sec.style.display = "none";
+    });
+
+    function toggleSection(section, resultBox) {
+        if (section.style.display === "none") {
+            section.style.display = "block";
+        } else {
+            section.style.display = "none";
+            resultBox.style.display = "none"; // hide old results when closing
+        }
+    }
+
+    async function sendRequest(url, method = "GET", body = null) {
+        let res = await fetch(url, {
+            method,
+            headers: body ? { "Content-Type": "application/json" } : {},
+            body: body ? JSON.stringify(body) : null,
+            credentials: "include"
+        });
+
+        const text = await res.text();
+        try { return JSON.parse(text); }
+        catch { return { error: "Non-JSON response", raw: text }; }
+        }
+
     function setupGetTryIt(linkId, sectionId, formId, inputId, resultId, endpoint) {
-      const link = document.getElementById(linkId);
-      const section = document.getElementById(sectionId);
-      const form = document.getElementById(formId);
-      const input = document.getElementById(inputId);
-      const result = document.getElementById(resultId);
+        const link = document.getElementById(linkId);
+        const section = document.getElementById(sectionId);
+        const form = document.getElementById(formId);
+        const input = inputId ? document.getElementById(inputId) : null;
+        const result = document.getElementById(resultId);
 
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        section.style.display = section.style.display === "none" ? "block" : "none";
-        result.style.display = "none";
-      });
+        // Toggle section open/close
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            toggleSection(section, result);
+        });
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        let queryString = "";
-        const rawParams = input.value.trim();
+        // Handle submit
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
 
-        if (rawParams) {
-          const params = rawParams.split(",").map(p => p.trim()).join("&");
-          queryString = "?" + params;
-        }
+            let queryString = "";
+            if (input && input.value.trim()) {
+                queryString = "?" + input.value
+                    .split(",")
+                    .map(p => p.trim())
+                    .join("&");
+            }
 
-        try {
-          const response = await fetch(`${endpoint}${queryString}`);
-          const data = await response.json();
-          result.textContent = JSON.stringify(data, null, 2);
-        } catch (err) {
-          result.textContent = "Error: " + err.message;
-        }
-        result.style.display = "block";
-      });
+            const url = endpoint + queryString;
+
+            const data = await sendRequest(url, "GET");
+            result.textContent = JSON.stringify(data, null, 2);
+            result.style.display = "block";
+        });
     }
 
-    // Helper for POST
     function setupPostTryIt(linkId, sectionId, formId, bodyId, resultId, endpoint) {
-      const link = document.getElementById(linkId);
-      const section = document.getElementById(sectionId);
-      const form = document.getElementById(formId);
-      const bodyInput = document.getElementById(bodyId);
-      const result = document.getElementById(resultId);
+        const link = document.getElementById(linkId);
+        const section = document.getElementById(sectionId);
+        const form = document.getElementById(formId);
+        const bodyInput = document.getElementById(bodyId);
+        const result = document.getElementById(resultId);
 
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        section.style.display = section.style.display === "none" ? "block" : "none";
-        result.style.display = "none";
-      });
+        // Toggle open/close
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            toggleSection(section, result);
+        });
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        let bodyData = {};
-        try {
-          if (bodyInput.value.trim()) {
-            bodyData = JSON.parse(bodyInput.value.trim());
-          }
-        } catch {
-          result.textContent = "❌ Invalid JSON body format";
-          result.style.display = "block";
-          return;
-        }
+        // Handle submit
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
 
-        try {
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(bodyData)
-          });
-          const data = await response.json();
-          result.textContent = JSON.stringify(data, null, 2);
-        } catch (err) {
-          result.textContent = "Error: " + err.message;
-        }
-        result.style.display = "block";
-      });
+            let jsonBody = {};
+            if (bodyInput.value.trim()) {
+                try {
+                    jsonBody = JSON.parse(bodyInput.value.trim());
+                } catch {
+                    result.textContent = "Invalid JSON body format";
+                    result.style.display = "block";
+                    return;
+                }
+            }
+
+            const data = await sendRequest(endpoint, "POST", jsonBody);
+            result.textContent = JSON.stringify(data, null, 2);
+            result.style.display = "block";
+        });
     }
 
-    // Attach for GET and POST
-    setupGetTryIt("tryGetRepos", "getReposSection", "getReposForm", "queryParamsGet", "resultBoxGet", "/repo/get_repos");
-    setupPostTryIt("tryFetchRepos", "fetchReposSection", "fetchReposForm", "bodyParams", "resultBoxFetch", "/repo/fetch_repos");
+    setupGetTryIt("tryGetRepos",   "getReposSection",   "getReposForm",   "queryParamsGet", "resultBoxGet",   "/repo/get_repos");
+    setupGetTryIt("tryTopRepos",   "topReposSection",   "topReposForm",   "queryParamsTop", "resultBoxTop",   "/repo/top_repos");
+    setupGetTryIt("tryStatsRepos", "statsReposSection", "statsReposForm", "",               "resultBoxStats", "/repo/stats");
+    setupPostTryIt("tryFetchRepos","fetchReposSection", "fetchReposForm", "bodyParams",     "resultBoxFetch", "/repo/fetch_repos");
+
 </script>
 </body>
 </html>
