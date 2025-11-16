@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Dashboard API | GitScope</title>
+    <style>
+        /* General Page Styling */
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          color: #333;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          min-height: 100vh;
+        }
+
+        .container {
+          background: #ffffff;
+          margin: 50px auto;
+          padding: 2.5rem;
+          border-radius: 1rem;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+          width: 90%;
+          max-width: 1000px;
+          transition: transform 0.3s ease;
+          position: relative;
+        }
+
+        .container:hover {
+          transform: translateY(-5px);
+        }
+
+        /* Header Section */
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+        }
+
+        h1 {
+          color: #333;
+          margin: 0;
+        }
+
+        /* Logout Button */
+        .logout-btn {
+          background-color: #667eea;
+          color: white;
+          border: none;
+          padding: 0.6rem 1.2rem;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          font-size: 0.95rem;
+          transition: background 0.3s ease;
+          text-decoration: none;
+        }
+
+        .logout-btn:hover {
+          background-color: #5563c1;
+        }
+
+        p {
+          color: #555;
+          text-align: center;
+          margin-bottom: 2rem;
+        }
+
+        h2 {
+          color: #444;
+          border-bottom: 2px solid #667eea;
+          padding-bottom: 5px;
+          margin-bottom: 1rem;
+        }
+
+        /* Endpoint Cards */
+        .endpoint {
+          background: #f8f9fa;
+          padding: 1rem;
+          margin: 1rem 0;
+          border-radius: 0.75rem;
+          border-left: 5px solid #667eea;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          transition: transform 0.2s ease;
+        }
+
+        .endpoint:hover {
+          transform: scale(1.02);
+        }
+
+        .method {
+          color: #28a745;
+          font-weight: bold;
+          margin-right: 0.5rem;
+        }
+
+        .method::after {
+          content: " | ";
+          color: #999;
+        }
+
+        code {
+          background: #e9ecef;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-family: 'Consolas', monospace;
+          font-size: 0.95rem;
+        }
+
+        a {
+          color: #667eea;
+          text-decoration: none;
+          font-weight: 500;
+        }
+
+        a:hover {
+          text-decoration: underline;
+        }
+
+        /* Try It Section */
+        .tryItSection {
+          display: none;
+          margin-top: 1rem;
+          padding: 1rem;
+          border-radius: 0.5rem;
+          background: #f4f4f4;
+          border: 1px solid #ddd;
+        }
+
+        .tryItForm input {
+          width: 100%;
+          padding: 0.6rem;
+          border-radius: 0.5rem;
+          border: 1px solid #ccc;
+          margin-top: 0.5rem;
+          font-size: 0.95rem;
+          transition: border 0.2s;
+        }
+
+        .tryItForm input:focus {
+          border-color: #667eea;
+          outline: none;
+          box-shadow: 0 0 4px rgba(102, 126, 234, 0.5);
+        }
+
+        .tryItForm button {
+          margin-top: 1rem;
+          background: #667eea;
+          color: white;
+          border: none;
+          padding: 0.7rem 1.5rem;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          transition: background 0.3s ease;
+        }
+
+        .tryItForm button:hover {
+          background: #5563c1;
+        }
+
+        .resultBox {
+          display: none;
+          margin-top: 1rem;
+          padding: 1rem;
+          border: 1px solid #ddd;
+          background: #f8f8f8;
+          font-family: monospace;
+          white-space: pre-wrap;
+          border-radius: 0.5rem;
+          max-height: 400px;
+          overflow-y: auto;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .container {
+            width: 95%;
+            padding: 1.5rem;
+          }
+
+          h1 {
+            font-size: 1.6rem;
+          }
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <div class="header">
+        <h1>GitHub Repository Dashboard API</h1>
+        <a href="/auth/logout" class="logout-btn">Logout</a>
+    </div>
+
+    <p>Welcome to the API-based Automation Dashboard! This API fetches and stores popular GitHub
+        repositories.</p>
+
+    <h2>Available Endpoints</h2>
+
+    <div class="endpoint">
+        <span class="method">GET</span>
+        <code>/repo/get_repos</code><br>
+        Get all repositories |
+        <a href="#" id="tryGetRepos">Try it</a>
+
+        <div id="getReposSection" class="tryItSection">
+            <form id="getReposForm" class="tryItForm">
+                <label for="queryParamsGet">Enter query parameters (key=value, comma separated):</label><br>
+                <input type="text" id="queryParamsGet" placeholder="e.g. language=python, limit=10"><br>
+                <button type="submit">Send Request</button>
+            </form>
+            <div id="resultBoxGet" class="resultBox"></div>
+        </div>
+    </div>
+
+    <div class="endpoint">
+        <span class="method">GET</span>
+        <code>/repo/top_repos</code><br>
+        Get top repositories by stars |
+        <a href="#" id="tryTopRepos">Try it</a>
+
+        <div id="topReposSection" class="tryItSection">
+            <form id="topReposForm" class="tryItForm">
+                <label for="queryParamsTop">Enter query parameters (key=value, comma separated):</label><br>
+                <input type="text" id="queryParamsTop" placeholder="e.g. limit=5, language=python"><br>
+                <button type="submit">Send Request</button>
+            </form>
+            <div id="resultBoxTop" class="resultBox"></div>
+        </div>
+    </div>
+
+    <div class="endpoint">
+        <span class="method">GET</span>
+        <code>/repo/stats</code><br>
+        Get database statistics |
+        <a href="#" id="tryStatsRepos">Try it</a>
+
+        <div id="statsReposSection" class="tryItSection">
+            <form id="statsReposForm" class="tryItForm">
+                <button type="submit">Send Request</button>
+            </form>
+            <div id="resultBoxStats" class="resultBox"></div>
+        </div>
+    </div>
+
+    <div class="endpoint">
+        <span class="method" style="color:#007bff;">POST</span>
+        <code>/repo/fetch_repos</code><br>
+        Fetch repositories from GitHub and store them |
+        <a href="#" id="tryFetchRepos">Try it</a>
+
+        <div id="fetchReposSection" class="tryItSection">
+            <form id="fetchReposForm" class="tryItForm">
+                <label for="bodyParams">Enter JSON body:</label><br>
+                <textarea id="bodyParams" placeholder='e.g. {"topic": "python", "limit": 10}'></textarea><br>
+                <button type="submit">Send Request</button>
+            </form>
+            <div id="resultBoxFetch" class="resultBox"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll(".tryItSection").forEach(sec => {
+        sec.style.display = "none";
+    });
+
+    function toggleSection(section, resultBox) {
+        if (section.style.display === "none") {
+            section.style.display = "block";
+        } else {
+            section.style.display = "none";
+            resultBox.style.display = "none"; // hide old results when closing
+        }
+    }
+
+    async function sendRequest(url, method = "GET", body = null) {
+        let res = await fetch(url, {
+            method,
+            headers: body ? { "Content-Type": "application/json" } : {},
+            body: body ? JSON.stringify(body) : null,
+            credentials: "include"
+        });
+
+        const text = await res.text();
+        try { return JSON.parse(text); }
+        catch { return { error: "Non-JSON response", raw: text }; }
+        }
+
+    function setupGetTryIt(linkId, sectionId, formId, inputId, resultId, endpoint) {
+        const link = document.getElementById(linkId);
+        const section = document.getElementById(sectionId);
+        const form = document.getElementById(formId);
+        const input = inputId ? document.getElementById(inputId) : null;
+        const result = document.getElementById(resultId);
+
+        // Toggle section open/close
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            toggleSection(section, result);
+        });
+
+        // Handle submit
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            let queryString = "";
+            if (input && input.value.trim()) {
+                queryString = "?" + input.value
+                    .split(",")
+                    .map(p => p.trim())
+                    .join("&");
+            }
+
+            const url = endpoint + queryString;
+
+            const data = await sendRequest(url, "GET");
+            result.textContent = JSON.stringify(data, null, 2);
+            result.style.display = "block";
+        });
+    }
+
+    function setupPostTryIt(linkId, sectionId, formId, bodyId, resultId, endpoint) {
+        const link = document.getElementById(linkId);
+        const section = document.getElementById(sectionId);
+        const form = document.getElementById(formId);
+        const bodyInput = document.getElementById(bodyId);
+        const result = document.getElementById(resultId);
+
+        // Toggle open/close
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            toggleSection(section, result);
+        });
+
+        // Handle submit
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            let jsonBody = {};
+            if (bodyInput.value.trim()) {
+                try {
+                    jsonBody = JSON.parse(bodyInput.value.trim());
+                } catch {
+                    result.textContent = "Invalid JSON body format";
+                    result.style.display = "block";
+                    return;
+                }
+            }
+
+            const data = await sendRequest(endpoint, "POST", jsonBody);
+            result.textContent = JSON.stringify(data, null, 2);
+            result.style.display = "block";
+        });
+    }
+
+    setupGetTryIt("tryGetRepos",   "getReposSection",   "getReposForm",   "queryParamsGet", "resultBoxGet",   "/repo/get_repos");
+    setupGetTryIt("tryTopRepos",   "topReposSection",   "topReposForm",   "queryParamsTop", "resultBoxTop",   "/repo/top_repos");
+    setupGetTryIt("tryStatsRepos", "statsReposSection", "statsReposForm", "",               "resultBoxStats", "/repo/stats");
+    setupPostTryIt("tryFetchRepos","fetchReposSection", "fetchReposForm", "bodyParams",     "resultBoxFetch", "/repo/fetch_repos");
+
+</script>
+</body>
+</html>
